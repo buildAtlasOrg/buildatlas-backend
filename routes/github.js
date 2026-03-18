@@ -1,4 +1,5 @@
-require(dotenv).config();
+require('dotenv').config({ path: './routes/getGitHubLogin.env' });
+const session = require('express-session');
 const express = require("express");
 const router = express.Router();
 const passport = require("passport");
@@ -67,7 +68,7 @@ app.get('/', (req, res) => {
 
 app.get(
     '/auth/github',
-    passport.authenticate('github',{scope['user.email']})
+    passport.authenticate('github', { scope: ['user:email'] })
 );
 
 //github callback
@@ -87,5 +88,36 @@ app.get(
 //protected route
 
 function ensureAuth(req,res,next){
-    if(req.isAuthenticated )
+    if(req.isAuthenticated && req.isAuthenticated()){
+        return next();
+    }
+    res.status(401).send("Github login failed");
 }
+
+app.get('/profile',ensureAuth,(req,res)=>{
+    res.json(
+        {
+            message:"Authenticated user",
+            user: req.user,
+        })
+});
+
+app.get('/login-failed',(req,res)=>{
+    res.json({
+        message:'Authenticaed user',
+        user: req.user,
+    });
+});
+
+app.get('/logout', (req, res, next) => {
+    req.logout(function(err) {
+        if (err) return next(err);
+        req.session.destroy(() => {
+            res.redirect('/');
+        });
+    });
+});
+
+app.listen(process.env.PORT||5000,()=>{
+    console.log(`Serving running on http://localhost:${process.env.PORT||5000}`);
+});
