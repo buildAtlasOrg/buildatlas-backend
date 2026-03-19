@@ -1,4 +1,6 @@
 function normalizeRepo(repo) {
+  // TODO(intern): enforce explicit fields and strip any GH API fields that could contain unsafe data.
+  // TODO(intern): add safe defaults / auditing for missing owner/default_branch values.
   return {
     name: repo.name,
     url: repo.html_url,

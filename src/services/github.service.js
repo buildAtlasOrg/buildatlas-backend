@@ -6,6 +6,7 @@ async function fetchUserRepos(accessToken) {
     throw new Error('No access token provided');
   }
 
+  // TODO(intern): add a request limiter or circuit-breaker to protect GitHub API calls from DOS at high volume.
   const response = await axios.get('https://api.github.com/user/repos', {
     headers: {
       Authorization: `token ${accessToken}`,
@@ -52,6 +53,8 @@ async function createWorkflow(accessToken, owner, repoName, defaultBranch = 'mai
     headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' }
   });
 
+  // TODO(intern): make workflow YAML template configurable and avoid hard-coding test/run commands.
+  // TODO(intern): normalize GitHub API errors and return a consistent service error object to controller layer.
   return commit.data;
 }
 

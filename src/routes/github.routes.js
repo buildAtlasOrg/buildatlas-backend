@@ -9,10 +9,13 @@ const router = express.Router();
 router.get('/', githubController.home);
 
 // Secured repos API route
+// TODO(intern): add application-level rate limiting middleware on these routes to guard against abuse.
+// TODO(intern): verify `ensureAuth` sets req.user.accessToken from a secure DB session store.
 router.get('/api/repos', ensureAuth, githubController.getRepos);
 router.post('/api/repos/workflows', ensureAuth, githubController.createWorkflows);
 
 // Start GitHub OAuth
+// TODO(intern): use least-privilege OAuth scopes and document why each scope is required.
 router.get('/auth/github', passport.authenticate('github', { scope: ['user:email', 'read:user', 'repo'] }));
 
 // OAuth callback route

@@ -12,6 +12,8 @@ function configurePassport(passport) {
         callbackURL: process.env.GITHUB_CALLBACK_URL
       },
       function verify(accessToken, refreshToken, profile, done) {
+        // TODO(intern): switch to minimal session objects; move tokens into encrypted DB storage to reduce risk if cookies are stolen.
+        // TODO(intern): log and monitor unexpected null accessToken values for security incidents.
         const user = {
           id: profile.id,
           username: profile.username,
