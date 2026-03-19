@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <h1>Your GitHub Profile</h1>
+      <div>
+        <a class="github-btn" href="/repos">Repos</a>
+        <button id="logout" class="github-btn" style="margin-left: 10px;" onclick="window.location='/logout'">Logout</button>
+      </div>
+    </div>
+
+    <div id="profile" class="profile"></div>
+  </div>
+
+  <script>
+    async function loadProfile() {
+      const res = await fetch('/api/me', { credentials: 'include' });
+      if (res.status === 401) {
+        window.location = '/';
+        return;
+      }
+      const user = await res.json();
+      const profile = document.getElementById('profile');
+      profile.innerHTML = `
+        <div class="profile-card">
+          <img class="avatar" src="${user.photos?.[0]?.value || ''}" alt="Avatar" />
+          <div class="profile-info">
+            <h2>${user.displayName || user.username}</h2>
+            <p><strong>Username:</strong> ${user.username}</p>
+            <p><strong>ID:</strong> ${user.id}</p>
+          </div>
+        </div>
+      `;
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>
