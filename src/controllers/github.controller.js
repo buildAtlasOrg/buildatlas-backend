@@ -1,16 +1,13 @@
-// Controller layer: handles Express request/response for GitHub-related routes
 const path = require('path');
-const { fetchUserRepos } = require('../services/githubServices');
+const { fetchUserRepos } = require('../services/github.service');
 
-// Home endpoint: redirect authenticated users to repos page, otherwise show landing page
 function home(req, res) {
   if (req.isAuthenticated && req.isAuthenticated()) {
     return res.redirect('/repos');
   }
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  res.sendFile(path.join(__dirname, '../../public/index.html'));
 }
 
-// API endpoint for fetching repositories with backend GitHub service
 async function getRepos(req, res) {
   if (!req.user || !req.user.accessToken) {
     return res.status(401).json({ error: 'No access token found.' });
@@ -20,33 +17,28 @@ async function getRepos(req, res) {
     const repos = await fetchUserRepos(req.user.accessToken);
     res.json(repos);
   } catch (error) {
-    // Internal server error returned if GitHub API call fails
     res.status(500).json({ error: 'Failed to fetch repositories', details: error.message });
   }
 }
 
-// OAuth callback success handler
 function githubCallback(req, res) {
-  // Debug logs for session and user data
   console.log('LOGIN CALLBACK – user:', req.user);
   console.log('LOGIN CALLBACK – sessionID:', req.sessionID, 'session:', req.session);
   res.redirect('/repos');
 }
 
-// Page handlers for client routes
 function reposPage(req, res) {
-  res.sendFile(path.join(__dirname, '../public/repos.html'));
+  res.sendFile(path.join(__dirname, '../../public/repos.html'));
 }
 
 function profilePage(req, res) {
-  res.sendFile(path.join(__dirname, '../public/profile.html'));
+  res.sendFile(path.join(__dirname, '../../public/profile.html'));
 }
 
 function loginFailed(req, res) {
   res.json({ message: 'GitHub login failed. Please try again.' });
 }
 
-// Logout route handler
 function logout(req, res, next) {
   req.logout(function(err) {
     if (err) return next(err);

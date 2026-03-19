@@ -1,10 +1,2 @@
-const express = require("express");
-const app = express();
-
-app.get("/", (req, res) => {
-  res.send("BuildAtlas API running");
-});
-
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
+// Legacy root server bootstrap; forwards to src/server.js
+require('./src/server');
