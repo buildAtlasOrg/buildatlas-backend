@@ -20,4 +20,39 @@ async function fetchUserRepos(accessToken) {
   return response.data.map(repo => normalizeRepo(repo));
 }
 
-module.exports = { fetchUserRepos };
+async function createWorkflow(accessToken, owner, repoName, defaultBranch = 'main') {
+  if (!accessToken || !owner || !repoName) {
+    throw new Error('accessToken, owner, and repoName are required');
+  }
+
+  const path = '.github/workflows/buildatlas.yml';
+  const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/contents/${path}`;
+  const workflowYaml = `name: BuildAtlas\n\non:\n  push:\n    branches: [${defaultBranch}]\n  pull_request:\n    branches: [${defaultBranch}]\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Node.js\n        uses: actions/setup-node@v4\n        with:\n          node-version: '18'\n      - name: Install dependencies\n        run: npm install\n      - name: Run tests\n        run: npm test\n`;
+  const encodedContent = Buffer.from(workflowYaml).toString('base64');
+
+  const payload = {
+    message: 'Add BuildAtlas workflow',
+    content: encodedContent,
+    branch: defaultBranch
+  };
+
+  try {
+    // If workflow exists, update (must provide sha)
+    const existing = await axios.get(apiUrl, {
+      headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' }
+    });
+    payload.sha = existing.data.sha;
+  } catch (err) {
+    if (!(err.response && err.response.status === 404)) {
+      throw err;
+    }
+  }
+
+  const commit = await axios.put(apiUrl, payload, {
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' }
+  });
+
+  return commit.data;
+}
+
+module.exports = { fetchUserRepos, createWorkflow };

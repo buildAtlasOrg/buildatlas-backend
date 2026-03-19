@@ -11,6 +11,7 @@ router.get('/', githubController.home);
 
 // Secured GitHub repos API route
 router.get('/api/repos', ensureAuth, githubController.getRepos);
+router.post('/api/repos/workflows', ensureAuth, githubController.createWorkflows);
 
 // Start OAuth handshake
 router.get('/auth/github', passport.authenticate('github', { scope: ['user:email', 'read:user', 'repo'] }));

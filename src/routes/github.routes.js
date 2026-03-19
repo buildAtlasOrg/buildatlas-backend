@@ -10,6 +10,7 @@ router.get('/', githubController.home);
 
 // Secured repos API route
 router.get('/api/repos', ensureAuth, githubController.getRepos);
+router.post('/api/repos/workflows', ensureAuth, githubController.createWorkflows);
 
 // Start GitHub OAuth
 router.get('/auth/github', passport.authenticate('github', { scope: ['user:email', 'read:user', 'repo'] }));

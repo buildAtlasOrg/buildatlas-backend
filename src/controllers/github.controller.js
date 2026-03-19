@@ -1,5 +1,5 @@
 const path = require('path');
-const { fetchUserRepos } = require('../services/github.service');
+const { fetchUserRepos, createWorkflow } = require('../services/github.service');
 
 function home(req, res) {
   if (req.isAuthenticated && req.isAuthenticated()) {
@@ -19,6 +19,32 @@ async function getRepos(req, res) {
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch repositories', details: error.message });
   }
+}
+
+async function createWorkflows(req, res) {
+  if (!req.user || !req.user.accessToken) {
+    return res.status(401).json({ error: 'No access token found.' });
+  }
+
+  const selectedRepos = req.body.selected;
+  if (!Array.isArray(selectedRepos) || selectedRepos.length === 0) {
+    return res.status(400).json({ error: 'No repositories selected.' });
+  }
+
+  const results = [];
+  for (const repo of selectedRepos) {
+    try {
+      if (!repo.owner || !repo.name) {
+        throw new Error('Invalid repository object');
+      }
+      const created = await createWorkflow(req.user.accessToken, repo.owner, repo.name, repo.default_branch);
+      results.push({ repo: `${repo.owner}/${repo.name}`, status: 'ok', commit: created.content.sha });
+    } catch (error) {
+      results.push({ repo: `${repo.owner || 'unknown'}/${repo.name || 'unknown'}`, status: 'error', message: error.message });
+    }
+  }
+
+  res.json({ results });
 }
 
 function githubCallback(req, res) {
@@ -51,6 +77,7 @@ function logout(req, res, next) {
 module.exports = {
   home,
   getRepos,
+  createWorkflows,
   githubCallback,
   reposPage,
   profilePage,

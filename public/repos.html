@@ -30,6 +30,11 @@
     <h1>📦 Your GitHub Repositories</h1>
     <button id="logout" onclick="window.location='/logout'">Log out</button>
   </div>
+  <div style="margin-bottom: 1rem; display:flex; gap: 0.75rem; align-items:center;">
+    <button id="setup-workflow" style="background:#238636;border:1px solid #2ea043;color:#fff;padding:8px 14px;border-radius:6px;cursor:pointer;">Create workflow in selected repos</button>
+    <button id="select-all" style="background:#0d1117;border:1px solid #30363d;color:#8b949e;padding:6px 12px;border-radius:6px;cursor:pointer;">Select all</button>
+    <button id="clear-all" style="background:#0d1117;border:1px solid #30363d;color:#8b949e;padding:6px 12px;border-radius:6px;cursor:pointer;">Clear all</button>
+  </div>
   <div id="status">Loading repositories...</div>
   <div id="repo-list"></div>
 
@@ -56,16 +61,19 @@
 
         list.innerHTML = repos.map(repo => `
           <div class="repo-card">
-            <div>
-              <div class="repo-name">
-                <a href="${repo.url}" target="_blank">${repo.name}</a>
-                <span class="badge ${repo.private ? 'private' : 'public'}">${repo.private ? 'Private' : 'Public'}</span>
-              </div>
-              ${repo.description ? `<div class="repo-desc">${repo.description}</div>` : ''}
-              <div class="repo-meta">
-                ${repo.language ? `<span><span class="lang-dot" style="background:${langColors[repo.language] || '#8b949e'}"></span>${repo.language}</span>` : ''}
-                ${repo.stars > 0 ? `<span>⭐ ${repo.stars}</span>` : ''}
-                <span>Updated ${timeAgo(repo.updated_at)}</span>
+            <div style="display:flex; gap: 0.75rem; align-items:flex-start; width:100%;">
+              <input type="checkbox" class="repo-select" data-owner="${repo.owner}" data-name="${repo.name}" data-default-branch="${repo.default_branch}" style="margin-top:6px;" />
+              <div style="flex:1;">
+                <div class="repo-name">
+                  <a href="${repo.url}" target="_blank">${repo.name}</a>
+                  <span class="badge ${repo.private ? 'private' : 'public'}">${repo.private ? 'Private' : 'Public'}</span>
+                </div>
+                ${repo.description ? `<div class="repo-desc">${repo.description}</div>` : ''}
+                <div class="repo-meta">
+                  ${repo.language ? `<span><span class="lang-dot" style="background:${langColors[repo.language] || '#8b949e'}"></span>${repo.language}</span>` : ''}
+                  ${repo.stars > 0 ? `<span>⭐ ${repo.stars}</span>` : ''}
+                  <span>Updated ${timeAgo(repo.updated_at)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -85,6 +93,50 @@
       if (months < 12) return `${months} month${months > 1 ? 's' : ''} ago`;
       return `${Math.floor(months / 12)} year${Math.floor(months / 12) > 1 ? 's' : ''} ago`;
     }
+
+    async function applyWorkflowToSelected() {
+      const status = document.getElementById('status');
+      const checks = Array.from(document.querySelectorAll('.repo-select:checked'));
+      if (!checks.length) {
+        status.textContent = 'No repositories selected. Select at least one to create workflows.';
+        return;
+      }
+
+      const selected = checks.map(input => ({
+        owner: input.dataset.owner,
+        name: input.dataset.name,
+        default_branch: input.dataset.defaultBranch || 'main'
+      }));
+
+      status.textContent = `Creating workflows in ${selected.length} repository(ies)...`;
+      try {
+        const response = await fetch('/api/repos/workflows', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selected })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          status.textContent = `Failed to create workflows: ${result.error || 'unknown error'}`;
+          return;
+        }
+
+        const summary = result.results.map(r => `${r.repo}: ${r.status}${r.message ? ` (${r.message})` : ''}`).join(' | ');
+        status.textContent = `Workflow creation complete. ${summary}`;
+      } catch (err) {
+        status.textContent = 'Failed to create workflows, check console for detail.';
+        console.error(err);
+      }
+    }
+
+    function setAllCheckboxes(checked) {
+      document.querySelectorAll('.repo-select').forEach(input => { input.checked = checked; });
+    }
+
+    document.getElementById('setup-workflow').addEventListener('click', applyWorkflowToSelected);
+    document.getElementById('select-all').addEventListener('click', () => setAllCheckboxes(true));
+    document.getElementById('clear-all').addEventListener('click', () => setAllCheckboxes(false));
 
     loadRepos();
   </script>
