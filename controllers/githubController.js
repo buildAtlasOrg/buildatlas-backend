@@ -11,9 +11,9 @@ function home(req, res) {
 }
 
 // API endpoint for fetching repositories with backend GitHub service
-// TODO(intern): validate req.user and req.user.accessToken for session expiration and refresh failure.
-// TODO(intern): implement pagination and caching with a short TTL for /api/repos responses to improve rate limit behavior.
-// TODO(intern): sanitize repo output and avoid leaking token or sensitive user info in error details in prod.
+// TODO: validate req.user and req.user.accessToken for session expiration and refresh failure.
+// TODO: implement pagination and caching with a short TTL for /api/repos responses to improve rate limit behavior.
+// TODO: sanitize repo output and avoid leaking token or sensitive user info in error details in prod.
 async function getRepos(req, res) {
   if (!req.user || !req.user.accessToken) {
     return res.status(401).json({ error: 'No access token found.' });
@@ -29,8 +29,8 @@ async function getRepos(req, res) {
 }
 
 async function createWorkflows(req, res) {
-  // TODO(intern): apply JSON schema validation for req.body.selected to prevent injection and malformed payloads.
-  // TODO(intern): rate-limit this endpoint per user to avoid mass-write operations on GitHub repos.
+  // TODO: apply JSON schema validation for req.body.selected to prevent injection and malformed payloads.
+  // TODO: rate-limit this endpoint per user to avoid mass-write operations on GitHub repos.
   if (!req.user || !req.user.accessToken) {
     return res.status(401).json({ error: 'No access token found.' });
   }
@@ -49,7 +49,7 @@ async function createWorkflows(req, res) {
       const created = await createWorkflow(req.user.accessToken, repo.owner, repo.name, repo.default_branch);
       results.push({ repo: `${repo.owner}/${repo.name}`, status: 'ok', commit: created.content.sha });
     } catch (error) {
-      // TODO(intern): consider storing error events in a persistent audit table for later analysis.
+      // TODO: consider storing error events in a persistent audit table for later analysis.
       results.push({ repo: `${repo.owner || 'unknown'}/${repo.name || 'unknown'}`, status: 'error', message: error.message });
     }
   }
@@ -58,8 +58,8 @@ async function createWorkflows(req, res) {
 }
 
 // OAuth callback success handler
-// TODO(intern): remove console.logs and switch to structured logger (winston/pino) with error severity and request IDs.
-// TODO(intern): avoid exposing full session object in logs, capture only non-sensitive metadata for auditing.
+// TODO: remove console.logs and switch to structured logger (winston/pino) with error severity and request IDs.
+// TODO: avoid exposing full session object in logs, capture only non-sensitive metadata for auditing.
 function githubCallback(req, res) {
   // Debug logs for session and user data
   console.log('LOGIN CALLBACK – user:', req.user);
@@ -82,8 +82,8 @@ function loginFailed(req, res) {
 
 // Logout route handler
 function logout(req, res, next) {
-  // TODO(intern): rotate session identifier after logout to prevent session fixation.
-  // TODO(intern): include logout event in audit log and optionally in a persistent 'user_sessions' history store.
+  // TODO: rotate session identifier after logout to prevent session fixation.
+  // TODO: include logout event in audit log and optionally in a persistent 'user_sessions' history store.
   req.logout(function(err) {
     if (err) return next(err);
     req.session.destroy(() => {

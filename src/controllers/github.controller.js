@@ -9,8 +9,8 @@ function home(req, res) {
 }
 
 async function getRepos(req, res) {
-  // TODO(intern): validate and enrich req.user token before API call, consider refresh-flow for stale tokens.
-  // TODO(intern): implement repository pagination metadata, with query params page/limit, to avoid large payloads.
+  // TODO: validate and enrich req.user token before API call, consider refresh-flow for stale tokens.
+  // TODO: implement repository pagination metadata, with query params page/limit, to avoid large payloads.
   if (!req.user || !req.user.accessToken) {
     return res.status(401).json({ error: 'No access token found.' });
   }
@@ -24,8 +24,8 @@ async function getRepos(req, res) {
 }
 
 async function createWorkflows(req, res) {
-  // TODO(intern): enforce an authorization layer to confirm user can write workflows in each selected repo.
-  // TODO(intern): persist workflow creation requests and status in DB for retryable background jobs.
+  // TODO: enforce an authorization layer to confirm user can write workflows in each selected repo.
+  // TODO: persist workflow creation requests and status in DB for retryable background jobs.
   if (!req.user || !req.user.accessToken) {
     return res.status(401).json({ error: 'No access token found.' });
   }
@@ -52,8 +52,8 @@ async function createWorkflows(req, res) {
 }
 
 function githubCallback(req, res) {
-  // TODO(intern): capture callback events with structured logs and correlate with request IDs.
-  // TODO(intern): add validation for OAuth state and CSRF protection in the callback flow.
+  // TODO: capture callback events with structured logs and correlate with request IDs.
+  // TODO: add validation for OAuth state and CSRF protection in the callback flow.
   console.log('LOGIN CALLBACK – user:', req.user);
   console.log('LOGIN CALLBACK – sessionID:', req.sessionID, 'session:', req.session);
   res.redirect('/repos');

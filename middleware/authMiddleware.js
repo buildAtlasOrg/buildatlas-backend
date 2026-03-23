@@ -1,7 +1,7 @@
 // Middleware: protect routes by checking session authentication
 function ensureAuth(req, res, next) {
-  // TODO(intern): remove plaintext session dump logs from production and use structured log levels (debug/trace only).
-  // TODO(intern): add explicit checks for session expiry / token revocation and force re-auth if invalid.
+  // TODO: remove plaintext session dump logs from production and use structured log levels (debug/trace only).
+  // TODO: add explicit checks for session expiry / token revocation and force re-auth if invalid.
   console.log('ensureAuth:', {
     isAuthenticated: req.isAuthenticated && req.isAuthenticated(),
     user: req.user,

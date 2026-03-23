@@ -16,8 +16,8 @@ function configurePassport(passport) {
         callbackURL: process.env.GITHUB_CALLBACK_URL
       },
       function verify(accessToken, refreshToken, profile, done) {
-        // TODO(intern): do not store accessToken in session directly; persist securely in DB and reference by session ID.
-        // TODO(intern): implement refresh token management or GitHub App installation tokens for long-lived auth.
+        // TODO: do not store accessToken in session directly; persist securely in DB and reference by session ID.
+        // TODO: implement refresh token management or GitHub App installation tokens for long-lived auth.
         const user = {
           id: profile.id,
           username: profile.username,

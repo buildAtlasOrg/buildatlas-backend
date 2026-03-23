@@ -3,13 +3,13 @@ const axios = require('axios');
 
 async function fetchUserRepos(accessToken) {
   // Validate required token input
-  // TODO(intern): enforce token format checking and avoid passing invalid tokens to GitHub.
+  // TODO: enforce token format checking and avoid passing invalid tokens to GitHub.
   if (!accessToken) {
     throw new Error('No access token provided');
   }
 
   // Query GitHub API for user repositories using the OAuth access token
-  // TODO(intern): add exponential backoff and retry for transient 502/503/429 responses and log rate-limit headers.
+  // TODO: add exponential backoff and retry for transient 502/503/429 responses and log rate-limit headers.
   const response = await axios.get('https://api.github.com/user/repos', {
     headers: {
       Authorization: `token ${accessToken}`,
@@ -66,8 +66,8 @@ async function createWorkflow(accessToken, owner, repoName, defaultBranch = 'mai
     headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' }
   });
 
-  // TODO(intern): detect and handle 409 conflict, 403 corp policies, and convert to structured service errors.
-  // TODO(intern): add support for GitHub App authentication (installation tokens) in addition to OAuth user tokens.
+  // TODO: detect and handle 409 conflict, 403 corp policies, and convert to structured service errors.
+  // TODO: add support for GitHub App authentication (installation tokens) in addition to OAuth user tokens.
   return commit.data;
 }
 
