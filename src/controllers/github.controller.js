@@ -1,4 +1,6 @@
 const path = require('path');
+const crypto = require('crypto');
+const passport = require('passport');
 const { fetchUserRepos, createWorkflow } = require('../services/github.service');
 
 function home(req, res) {
@@ -51,11 +53,24 @@ async function createWorkflows(req, res) {
   res.json({ results });
 }
 
+function initiateOAuth(req, res, next) {
+  const state = crypto.randomBytes(16).toString('hex');
+  req.session.oauthState = state;
+  passport.authenticate('github', {
+    scope: ['user:email', 'read:user', 'repo'],
+    state
+  })(req, res, next);
+}
+
 function githubCallback(req, res) {
-  // TODO: capture callback events with structured logs and correlate with request IDs.
-  // TODO: add validation for OAuth state and CSRF protection in the callback flow.
-  console.log('LOGIN CALLBACK – user:', req.user);
-  console.log('LOGIN CALLBACK – sessionID:', req.sessionID, 'session:', req.session);
+  const returnedState = req.query.state;
+  const expectedState = req.session.oauthState;
+  delete req.session.oauthState;
+
+  if (!returnedState || returnedState !== expectedState) {
+    return res.status(403).json({ error: 'Invalid OAuth state. Possible CSRF attack.' });
+  }
+
   res.redirect('/repos');
 }
 
@@ -84,6 +99,7 @@ module.exports = {
   home,
   getRepos,
   createWorkflows,
+  initiateOAuth,
   githubCallback,
   reposPage,
   profilePage,
