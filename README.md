@@ -1,109 +1,94 @@
-BUILDATLAS TODO
-===============
+# buildatlas-backend
 
--- SECURITY (do these first) --
+Backend for BuildAtlas — a tool that lets you connect your GitHub account and visualize your CI/CD pipelines as an interactive graph. Instead of reading raw YAML, you see your jobs, dependencies, and statuses as a node/edge diagram.
 
-Move tokens out of session/cookies into encrypted DB storage
-  src/middleware/passport.middleware.js, middleware/passportConfig.js
+This repo handles GitHub OAuth, fetches repos and workflow files, and exposes the API the frontend consumes.
 
-Rotate session ID on logout (session fixation)
-  src/controllers/github.controller.js, controllers/githubController.js
+---
 
-Add CSRF state param verification on OAuth callback
-  src/controllers/github.controller.js, routes/github.js
+## Tech Stack
 
-Remove plaintext session/token dump from logs
-  middleware/authMiddleware.js, controllers/githubController.js
+- **Node.js / Express** — HTTP server and routing
+- **Passport.js** — GitHub OAuth authentication
+- **express-session** — session management
+- **express-rate-limit** — rate limiting on API routes
+- **Supabase** — database for token and session storage (in progress)
+- **Axios** — GitHub REST API calls
+- **Winston** — structured logging (in progress)
 
-Do not log full session object, only non-sensitive metadata
-  controllers/githubController.js
+---
 
-Handle invalid/expired callback tokens with clear error
-  routes/github.js
+## Project Structure
 
+```
+src/
+├── app.js                  Express app setup and middleware
+├── server.js               Entry point
+├── config/
+│   └── db.js               Supabase client
+├── routes/
+│   └── github.routes.js    All route definitions
+├── controllers/
+│   └── github.controller.js Request handlers
+├── middleware/
+│   ├── auth.middleware.js   Auth guard (ensureAuth)
+│   └── passport.middleware.js GitHub OAuth strategy
+├── services/
+│   └── github.service.js   GitHub API calls
+└── utils/
+    └── github.js           Repo data normalization
+```
 
--- VALIDATION --
+---
 
-Validate req.body.selected before hitting GitHub API (schema check)
-  src/controllers/github.controller.js, controllers/githubController.js
+## Endpoints
 
-Confirm user has write access to each repo before creating workflow
-  src/controllers/github.controller.js
+```
+GET  /                          Home, redirects based on auth state
+GET  /auth/github               Start GitHub OAuth
+GET  /auth/github/callback      OAuth callback
+GET  /logout                    End session
+GET  /api/repos                 Fetch authenticated user's repos
+POST /api/repos/workflows       Push workflow file into selected repos
+GET  /repos                     Repos page (HTML)
+GET  /profile                   Profile page (HTML)
+```
 
-Validate req.user.accessToken before API call, handle stale tokens
-  src/controllers/github.controller.js, controllers/githubController.js
+---
 
-Enforce token format check before passing to GitHub
-  services/githubServices.js
+## Setup
 
-Strip unsafe fields from GitHub API response, add safe defaults
-  src/utils/github.js
+```
+npm install
+node server.js
+```
 
+Create `routes/getGitHubLogin.env`:
 
--- RELIABILITY --
+```
+PORT=5000
+SESSION_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:5000/auth/github/callback
+SUPABASE_URL=
+SUPABASE_KEY=
+```
 
-Add rate limiting on all API routes
-  src/routes/github.routes.js, routes/github.js
+GitHub OAuth credentials: github.com/settings/developers → OAuth Apps
+Supabase credentials: supabase.com → your project → Settings → API
 
-Add rate limiter / circuit-breaker on outbound GitHub API calls
-  src/services/github.service.js
+---
 
-Add exponential backoff/retry for 502/503/429 from GitHub
-  services/githubServices.js
+## Status
 
-Add session age check, force re-auth when session is too old
-  src/middleware/auth.middleware.js, middleware/authMiddleware.js
+Working:
+- GitHub OAuth login flow
+- Fetching user repositories from GitHub API
+- Pushing workflow YAML files into selected repos
+- Rate limiting on API routes
 
-Handle 409 conflict and 403 corp policy errors from GitHub
-  services/githubServices.js
-
-Normalize GitHub API errors into consistent error objects
-  src/services/github.service.js
-
-
--- FEATURES --
-
-Add pagination (page/limit) to /api/repos
-  src/controllers/github.controller.js, controllers/githubController.js
-
-Add short TTL caching on /api/repos
-  controllers/githubController.js
-
-Save workflow creation requests/status to DB for retryable jobs
-  src/controllers/github.controller.js
-
-Add GitHub App installation token support (alternative to OAuth)
-  services/githubServices.js, middleware/passportConfig.js
-
-Implement refresh token management
-  middleware/passportConfig.js
-
-Return JSON for unauthenticated API requests instead of redirecting
-  src/middleware/auth.middleware.js
-
-
--- LOGGING --
-
-Replace all console.logs with structured logger (winston/pino)
-  src/services/github.service.js, controllers/githubController.js
-
-Add structured logging for login_fail and logout events
-  routes/github.js
-
-Persist auth events to DB for incident investigation
-  routes/github.js
-
-Store error events in persistent audit table
-  controllers/githubController.js
-
-Log and monitor unexpected null accessToken values
-  src/middleware/passport.middleware.js
-
-
--- CLEANUP --
-
-Make workflow YAML template configurable, not hardcoded
-  src/services/github.service.js
-
-Use least-privilege OAuth scopes, document why each is needed
-  src/routes/github.routes.js, routes/github.js
+In progress:
+- Supabase integration (token storage, session persistence)
+- Pipeline visualization (handled in the frontend repo using React Flow)
+- Structured logging with Winston
