@@ -2,6 +2,7 @@ const path = require('path');
 const crypto = require('crypto');
 const passport = require('passport');
 const { fetchUserRepos, createWorkflow } = require('../services/github.service');
+const { getToken, deleteToken } = require('../services/token.service');
 
 function home(req, res) {
   if (req.isAuthenticated && req.isAuthenticated()) {
@@ -13,12 +14,13 @@ function home(req, res) {
 async function getRepos(req, res) {
   // TODO: validate and enrich req.user token before API call, consider refresh-flow for stale tokens.
   // TODO: implement repository pagination metadata, with query params page/limit, to avoid large payloads.
-  if (!req.user || !req.user.accessToken) {
+  const token = await getToken(req.user.id);
+  if (!token) {
     return res.status(401).json({ error: 'No access token found.' });
   }
 
   try {
-    const repos = await fetchUserRepos(req.user.accessToken);
+    const repos = await fetchUserRepos(token);
     res.json(repos);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch repositories', details: error.message });
@@ -28,7 +30,8 @@ async function getRepos(req, res) {
 async function createWorkflows(req, res) {
   // TODO: enforce an authorization layer to confirm user can write workflows in each selected repo.
   // TODO: persist workflow creation requests and status in DB for retryable background jobs.
-  if (!req.user || !req.user.accessToken) {
+  const token = await getToken(req.user.id);
+  if (!token) {
     return res.status(401).json({ error: 'No access token found.' });
   }
 
@@ -43,7 +46,7 @@ async function createWorkflows(req, res) {
       if (!repo.owner || !repo.name) {
         throw new Error('Invalid repository object');
       }
-      const created = await createWorkflow(req.user.accessToken, repo.owner, repo.name, repo.default_branch);
+      const created = await createWorkflow(token, repo.owner, repo.name, repo.default_branch);
       results.push({ repo: `${repo.owner}/${repo.name}`, status: 'ok', commit: created.content.sha });
     } catch (error) {
       results.push({ repo: `${repo.owner || 'unknown'}/${repo.name || 'unknown'}`, status: 'error', message: error.message });
@@ -87,9 +90,13 @@ function loginFailed(req, res) {
 }
 
 function logout(req, res, next) {
+  const userId = req.user && req.user.id;
   req.logout(function(err) {
     if (err) return next(err);
-    req.session.destroy(() => {
+    req.session.destroy(async () => {
+      if (userId) {
+        try { await deleteToken(userId); } catch (_) {}
+      }
       res.redirect('/');
     });
   });
