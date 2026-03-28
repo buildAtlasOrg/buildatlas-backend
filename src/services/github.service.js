@@ -258,4 +258,122 @@ async function createWorkflow(accessToken, owner, repoName, defaultBranch = 'mai
   return commit.data;
 }
 
-module.exports = { fetchUserRepos, createWorkflow, checkRepoWriteAccess };
+// ---------------------------------------------------------------------------
+// Fetch workflows for a repository
+// ---------------------------------------------------------------------------
+async function fetchWorkflows(accessToken, owner, repo) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/workflows`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch all workflow runs for a repository (with optional filters)
+// ---------------------------------------------------------------------------
+async function fetchRuns(accessToken, owner, repo, params = {}) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/runs`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+    params,
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch runs for a specific workflow
+// ---------------------------------------------------------------------------
+async function fetchWorkflowRuns(accessToken, owner, repo, workflowId, params = {}) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflowId}/runs`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+    params,
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch a single workflow run
+// ---------------------------------------------------------------------------
+async function fetchRun(accessToken, owner, repo, runId) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch jobs for a run
+// ---------------------------------------------------------------------------
+async function fetchRunJobs(accessToken, owner, repo, runId) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}/jobs`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch job logs — follows the GitHub 302 redirect and returns raw log text
+// ---------------------------------------------------------------------------
+async function fetchJobLogs(accessToken, owner, repo, jobId) {
+  validateTokenFormat(accessToken);
+  const response = await githubRequest({
+    method: 'get',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/jobs/${jobId}/logs`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+    maxRedirects: 5,
+    responseType: 'text',
+  });
+  return response.data;
+}
+
+// ---------------------------------------------------------------------------
+// Re-run a workflow run
+// ---------------------------------------------------------------------------
+async function reRunWorkflowRun(accessToken, owner, repo, runId) {
+  validateTokenFormat(accessToken);
+  await githubRequest({
+    method: 'post',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}/rerun`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cancel a workflow run
+// ---------------------------------------------------------------------------
+async function cancelWorkflowRun(accessToken, owner, repo, runId) {
+  validateTokenFormat(accessToken);
+  await githubRequest({
+    method: 'post',
+    url: `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}/cancel`,
+    headers: { Authorization: `token ${accessToken}`, 'User-Agent': 'buildatlas-app' },
+  });
+}
+
+module.exports = {
+  fetchUserRepos,
+  createWorkflow,
+  checkRepoWriteAccess,
+  fetchWorkflows,
+  fetchRuns,
+  fetchWorkflowRuns,
+  fetchRun,
+  fetchRunJobs,
+  fetchJobLogs,
+  reRunWorkflowRun,
+  cancelWorkflowRun,
+};

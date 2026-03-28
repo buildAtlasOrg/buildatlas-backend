@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
 const router = express.Router();
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
@@ -27,14 +27,25 @@ const workflowLimiter = rateLimit({
 // Public home route
 router.get('/', githubController.home);
 
-// Secured repos API route
+// Current session user
+router.get('/api/me', ensureAuth, githubController.getMe);
+
+// Repos
 router.get('/api/repos', ensureAuth, apiLimiter, githubController.getRepos);
 router.post('/api/repos/workflows', ensureAuth, workflowLimiter, githubController.createWorkflows);
 
-// Start GitHub OAuth — repo scope required to create workflow files
-router.get('/auth/github', githubController.initiateOAuth);
+// Workflows & runs (order matters — specific paths before param paths)
+router.get('/api/repos/:owner/:repo/workflows', ensureAuth, apiLimiter, githubController.getWorkflows);
+router.get('/api/repos/:owner/:repo/actions/runs', ensureAuth, apiLimiter, githubController.getRuns);
+router.get('/api/repos/:owner/:repo/actions/workflows/:workflowId/runs', ensureAuth, apiLimiter, githubController.getWorkflowRuns);
+router.get('/api/repos/:owner/:repo/actions/runs/:runId/jobs', ensureAuth, apiLimiter, githubController.getRunJobs);
+router.get('/api/repos/:owner/:repo/actions/runs/:runId', ensureAuth, apiLimiter, githubController.getRun);
+router.get('/api/repos/:owner/:repo/actions/jobs/:jobId/logs', ensureAuth, apiLimiter, githubController.getJobLogs);
+router.post('/api/repos/:owner/:repo/actions/runs/:runId/rerun', ensureAuth, workflowLimiter, githubController.reRunWorkflow);
+router.post('/api/repos/:owner/:repo/actions/runs/:runId/cancel', ensureAuth, workflowLimiter, githubController.cancelRun);
 
-// OAuth callback route — reject GitHub error params before passport runs
+// OAuth
+router.get('/auth/github', githubController.initiateOAuth);
 router.get('/auth/github/callback', (req, res, next) => {
   if (req.query.error) {
     const reason = req.query.error_description || req.query.error;

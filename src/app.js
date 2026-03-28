@@ -1,12 +1,18 @@
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
+const cors = require('cors');
 const path = require('path');
 const githubRouter = require('./routes/github.routes');
 const { configurePassport } = require('./middleware/passport.middleware');
 const logger = require('./utils/logger');
 
 const app = express();
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 
 app.use((req, _res, next) => {
   logger.info({ event: 'request', method: req.method, url: req.url });

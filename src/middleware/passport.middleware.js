@@ -29,7 +29,9 @@ function configurePassport(passport) {
         const user = {
           id: profile.id,
           username: profile.username,
-          displayName: profile.displayName
+          displayName: profile.displayName,
+          avatarUrl: (profile.photos && profile.photos[0] && profile.photos[0].value) || null,
+          email: (profile.emails && profile.emails[0] && profile.emails[0].value) || null,
         };
 
         try {
