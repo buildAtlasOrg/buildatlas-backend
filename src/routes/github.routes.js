@@ -3,6 +3,8 @@ const passport = require('passport');
 const rateLimit = require('express-rate-limit');
 const githubController = require('../controllers/github.controller');
 const { ensureAuth } = require('../middleware/auth.middleware');
+const { recordAuthEvent } = require('../services/auth-events.service');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -32,10 +34,16 @@ router.post('/api/repos/workflows', ensureAuth, workflowLimiter, githubControlle
 // Start GitHub OAuth — repo scope required to create workflow files
 router.get('/auth/github', githubController.initiateOAuth);
 
-// OAuth callback route — state param verified in controller
-router.get(
-  '/auth/github/callback',
-  passport.authenticate('github', { failureRedirect: '/login-failed' }),
+// OAuth callback route — reject GitHub error params before passport runs
+router.get('/auth/github/callback', (req, res, next) => {
+  if (req.query.error) {
+    const reason = req.query.error_description || req.query.error;
+    logger.warn({ event: 'oauth_callback_error', error: req.query.error, ip: req.ip });
+    recordAuthEvent('login_fail', null, req.ip);
+    return res.redirect(`/login-failed?reason=${encodeURIComponent(reason)}`);
+  }
+  next();
+}, passport.authenticate('github', { failureRedirect: '/login-failed' }),
   githubController.githubCallback
 );
 

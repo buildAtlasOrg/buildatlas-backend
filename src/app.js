@@ -4,11 +4,12 @@ const passport = require('passport');
 const path = require('path');
 const githubRouter = require('./routes/github.routes');
 const { configurePassport } = require('./middleware/passport.middleware');
+const logger = require('./utils/logger');
 
 const app = express();
 
-app.use((req, res, next) => {
-  console.log('[REQ]', req.method, req.url);
+app.use((req, _res, next) => {
+  logger.info({ event: 'request', method: req.method, url: req.url });
   next();
 });
 
@@ -23,7 +24,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: false,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax'
     }
   })

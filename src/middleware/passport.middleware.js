@@ -1,5 +1,6 @@
 const GitHubStrategy = require('passport-github').Strategy;
 const { storeToken } = require('../services/token.service');
+const logger = require('../utils/logger');
 
 function configurePassport(passport) {
   // Only serialize minimal, non-sensitive identifiers into the session cookie.
@@ -18,10 +19,10 @@ function configurePassport(passport) {
       },
       async function verify(accessToken, _refreshToken, profile, done) {
         if (!accessToken) {
-          console.warn('[SECURITY] GitHub OAuth returned null accessToken for user:', profile.id);
+          logger.warn({ event: 'oauth_null_access_token', userId: profile && profile.id });
         }
         if (!profile) {
-          console.warn('[SECURITY] GitHub OAuth returned null profile');
+          logger.warn({ event: 'oauth_null_profile' });
           return done(new Error('No profile returned from GitHub'));
         }
 

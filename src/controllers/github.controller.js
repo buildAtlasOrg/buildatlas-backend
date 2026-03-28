@@ -1,8 +1,11 @@
 const path = require('path');
 const crypto = require('crypto');
 const passport = require('passport');
-const { fetchUserRepos, createWorkflow } = require('../services/github.service');
+const { fetchUserRepos, createWorkflow, checkRepoWriteAccess } = require('../services/github.service');
 const { getToken, deleteToken } = require('../services/token.service');
+const { recordAuthEvent } = require('../services/auth-events.service');
+const { createJob, updateJob } = require('../services/workflow-jobs.service');
+const logger = require('../utils/logger');
 
 function home(req, res) {
   if (req.isAuthenticated && req.isAuthenticated()) {
@@ -12,24 +15,28 @@ function home(req, res) {
 }
 
 async function getRepos(req, res) {
-  // TODO: validate and enrich req.user token before API call, consider refresh-flow for stale tokens.
-  // TODO: implement repository pagination metadata, with query params page/limit, to avoid large payloads.
   const token = await getToken(req.user.id);
   if (!token) {
     return res.status(401).json({ error: 'No access token found.' });
   }
 
+  const page = req.query.page;
+  const limit = req.query.limit;
+
   try {
-    const repos = await fetchUserRepos(token);
-    res.json(repos);
+    const result = await fetchUserRepos(token, { page, limit });
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch repositories', details: error.message });
+    if (error.code === 'TOKEN_INVALID') {
+      logger.warn({ event: 'stale_token_detected', userId: req.user.id });
+      return res.status(401).json({ error: 'GitHub token is invalid or expired. Please log in again.' });
+    }
+    logger.error({ event: 'fetch_repos_error', userId: req.user.id, message: error.message });
+    res.status(500).json({ error: 'Failed to fetch repositories' });
   }
 }
 
 async function createWorkflows(req, res) {
-  // TODO: enforce an authorization layer to confirm user can write workflows in each selected repo.
-  // TODO: persist workflow creation requests and status in DB for retryable background jobs.
   const token = await getToken(req.user.id);
   if (!token) {
     return res.status(401).json({ error: 'No access token found.' });
@@ -42,14 +49,31 @@ async function createWorkflows(req, res) {
 
   const results = [];
   for (const repo of selectedRepos) {
+    if (typeof repo.owner !== 'string' || typeof repo.name !== 'string' || !repo.owner || !repo.name) {
+      results.push({ repo: 'unknown/unknown', status: 'error', message: 'Invalid repository object: owner and name must be non-empty strings' });
+      continue;
+    }
+
+    const jobId = await createJob(req.user.id, repo.owner, repo.name);
+
     try {
-      if (!repo.owner || !repo.name) {
-        throw new Error('Invalid repository object');
+      const hasAccess = await checkRepoWriteAccess(token, repo.owner, repo.name);
+      if (!hasAccess) {
+        await updateJob(jobId, 'error', { errorMsg: 'No write access to this repository' });
+        results.push({ repo: `${repo.owner}/${repo.name}`, status: 'error', message: 'No write access to this repository' });
+        continue;
       }
+
       const created = await createWorkflow(token, repo.owner, repo.name, repo.default_branch);
+      await updateJob(jobId, 'ok', { commitSha: created.content.sha });
       results.push({ repo: `${repo.owner}/${repo.name}`, status: 'ok', commit: created.content.sha });
     } catch (error) {
-      results.push({ repo: `${repo.owner || 'unknown'}/${repo.name || 'unknown'}`, status: 'error', message: error.message });
+      const message = error.code === 'PERMISSION_DENIED'
+        ? 'Repository policy denied workflow creation'
+        : error.message;
+      logger.warn({ event: 'workflow_create_error', repo: `${repo.owner}/${repo.name}`, code: error.code, message });
+      await updateJob(jobId, 'error', { errorMsg: message });
+      results.push({ repo: `${repo.owner}/${repo.name}`, status: 'error', message });
     }
   }
 
@@ -60,7 +84,7 @@ function initiateOAuth(req, res, next) {
   const state = crypto.randomBytes(16).toString('hex');
   req.session.oauthState = state;
   passport.authenticate('github', {
-    scope: ['user:email', 'read:user', 'repo'],
+    scope: ['read:user', 'repo'],
     state
   })(req, res, next);
 }
@@ -71,21 +95,30 @@ function githubCallback(req, res) {
   delete req.session.oauthState;
 
   if (!returnedState || returnedState !== expectedState) {
+    logger.warn({ event: 'oauth_state_mismatch', userId: req.user && req.user.id });
     return res.status(403).json({ error: 'Invalid OAuth state. Possible CSRF attack.' });
   }
 
+  // Stamp session creation time for age checks in auth middleware
+  req.session.createdAt = Date.now();
+
+  const userId = req.user && req.user.id;
+  logger.info({ event: 'login_success', userId });
+  recordAuthEvent('login_success', userId, req.ip);
   res.redirect('/repos');
 }
 
-function reposPage(req, res) {
+function reposPage(_req, res) {
   res.sendFile(path.join(__dirname, '../../public/repos.html'));
 }
 
-function profilePage(req, res) {
+function profilePage(_req, res) {
   res.sendFile(path.join(__dirname, '../../public/profile.html'));
 }
 
 function loginFailed(req, res) {
+  logger.warn({ event: 'login_fail', ip: req.ip });
+  recordAuthEvent('login_fail', null, req.ip);
   res.json({ message: 'GitHub login failed. Please try again.' });
 }
 
@@ -96,6 +129,8 @@ function logout(req, res, next) {
     req.session.destroy(async () => {
       if (userId) {
         try { await deleteToken(userId); } catch (_) {}
+        logger.info({ event: 'logout', userId });
+        recordAuthEvent('logout', userId, req.ip);
       }
       res.redirect('/');
     });
