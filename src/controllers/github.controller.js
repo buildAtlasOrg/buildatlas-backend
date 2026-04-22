@@ -1,21 +1,17 @@
 const path = require('path');
-const crypto = require('crypto');
 const passport = require('passport');
 const {
   fetchUserRepos, createWorkflow, checkRepoWriteAccess,
   fetchWorkflows, fetchRuns, fetchWorkflowRuns, fetchRun,
   fetchRunJobs, fetchJobLogs, reRunWorkflowRun, cancelWorkflowRun,
 } = require('../services/github.service');
-const { getToken, deleteToken } = require('../services/token.service');
-const { recordAuthEvent } = require('../services/auth-events.service');
-const { createJob, updateJob } = require('../services/workflow-jobs.service');
 const logger = require('../utils/logger');
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 function home(req, res) {
   if (req.isAuthenticated && req.isAuthenticated()) {
-    return res.redirect(`${FRONTEND_URL}/dashboard`);
+    return res.redirect(`${FRONTEND_URL}/app/dashboard`);
   }
   res.sendFile(path.join(__dirname, '../../public/index.html'));
 }
@@ -36,7 +32,7 @@ function getMe(req, res) {
 // ── Repos ─────────────────────────────────────────────────────────────────────
 
 async function getRepos(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
 
   try {
@@ -53,7 +49,7 @@ async function getRepos(req, res) {
 }
 
 async function createWorkflows(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
 
   const selectedRepos = req.body.selected;
@@ -68,23 +64,19 @@ async function createWorkflows(req, res) {
       continue;
     }
 
-    const jobId = await createJob(req.user.id, repo.owner, repo.name);
     try {
       const hasAccess = await checkRepoWriteAccess(token, repo.owner, repo.name);
       if (!hasAccess) {
-        await updateJob(jobId, 'error', { errorMsg: 'No write access to this repository' });
         results.push({ repo: `${repo.owner}/${repo.name}`, status: 'error', message: 'No write access to this repository' });
         continue;
       }
       const created = await createWorkflow(token, repo.owner, repo.name, repo.default_branch);
-      await updateJob(jobId, 'ok', { commitSha: created.content.sha });
       results.push({ repo: `${repo.owner}/${repo.name}`, status: 'ok', commit: created.content.sha });
     } catch (error) {
       const message = error.code === 'PERMISSION_DENIED'
         ? 'Repository policy denied workflow creation'
         : error.message;
       logger.warn({ event: 'workflow_create_error', repo: `${repo.owner}/${repo.name}`, code: error.code, message });
-      await updateJob(jobId, 'error', { errorMsg: message });
       results.push({ repo: `${repo.owner}/${repo.name}`, status: 'error', message });
     }
   }
@@ -94,7 +86,7 @@ async function createWorkflows(req, res) {
 // ── Workflows ─────────────────────────────────────────────────────────────────
 
 async function getWorkflows(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const data = await fetchWorkflows(token, req.params.owner, req.params.repo);
@@ -108,7 +100,7 @@ async function getWorkflows(req, res) {
 // ── Runs ──────────────────────────────────────────────────────────────────────
 
 async function getRuns(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const data = await fetchRuns(token, req.params.owner, req.params.repo, req.query);
@@ -120,7 +112,7 @@ async function getRuns(req, res) {
 }
 
 async function getWorkflowRuns(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const data = await fetchWorkflowRuns(token, req.params.owner, req.params.repo, req.params.workflowId, req.query);
@@ -132,7 +124,7 @@ async function getWorkflowRuns(req, res) {
 }
 
 async function getRun(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const data = await fetchRun(token, req.params.owner, req.params.repo, req.params.runId);
@@ -144,7 +136,7 @@ async function getRun(req, res) {
 }
 
 async function getRunJobs(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const data = await fetchRunJobs(token, req.params.owner, req.params.repo, req.params.runId);
@@ -156,7 +148,7 @@ async function getRunJobs(req, res) {
 }
 
 async function getJobLogs(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     const logs = await fetchJobLogs(token, req.params.owner, req.params.repo, req.params.jobId);
@@ -168,7 +160,7 @@ async function getJobLogs(req, res) {
 }
 
 async function reRunWorkflow(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     await reRunWorkflowRun(token, req.params.owner, req.params.repo, req.params.runId);
@@ -180,7 +172,7 @@ async function reRunWorkflow(req, res) {
 }
 
 async function cancelRun(req, res) {
-  const token = await getToken(req.user.id);
+  const token = req.user.accessToken;
   if (!token) return res.status(401).json({ error: 'No access token found.' });
   try {
     await cancelWorkflowRun(token, req.params.owner, req.params.repo, req.params.runId);
@@ -194,26 +186,14 @@ async function cancelRun(req, res) {
 // ── OAuth ─────────────────────────────────────────────────────────────────────
 
 function initiateOAuth(req, res, next) {
-  const state = crypto.randomBytes(16).toString('hex');
-  req.session.oauthState = state;
-  passport.authenticate('github', { scope: ['read:user', 'repo'], state })(req, res, next);
+  passport.authenticate('github', { scope: ['read:user', 'repo'] })(req, res, next);
 }
 
 function githubCallback(req, res) {
-  const returnedState = req.query.state;
-  const expectedState = req.session.oauthState;
-  delete req.session.oauthState;
-
-  if (!returnedState || returnedState !== expectedState) {
-    logger.warn({ event: 'oauth_state_mismatch', userId: req.user && req.user.id });
-    return res.status(403).json({ error: 'Invalid OAuth state. Possible CSRF attack.' });
-  }
-
   req.session.createdAt = Date.now();
   const userId = req.user && req.user.id;
   logger.info({ event: 'login_success', userId });
-  recordAuthEvent('login_success', userId, req.ip);
-  res.redirect(`${FRONTEND_URL}/dashboard`);
+  res.redirect(`${FRONTEND_URL}/app/dashboard`);
 }
 
 function reposPage(_req, res) {
@@ -226,7 +206,6 @@ function profilePage(_req, res) {
 
 function loginFailed(req, res) {
   logger.warn({ event: 'login_fail', ip: req.ip });
-  recordAuthEvent('login_fail', null, req.ip);
   res.redirect(`${FRONTEND_URL}/?login_failed=1`);
 }
 
@@ -234,12 +213,8 @@ function logout(req, res, next) {
   const userId = req.user && req.user.id;
   req.logout(function(err) {
     if (err) return next(err);
-    req.session.destroy(async () => {
-      if (userId) {
-        try { await deleteToken(userId); } catch (_) {}
-        logger.info({ event: 'logout', userId });
-        recordAuthEvent('logout', userId, req.ip);
-      }
+    req.session.destroy(() => {
+      logger.info({ event: 'logout', userId });
       res.json({ ok: true });
     });
   });

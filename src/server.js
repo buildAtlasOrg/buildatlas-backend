@@ -1,4 +1,4 @@
-require('dotenv').config({ path: './routes/getGitHubLogin.env' });
+require('dotenv').config({ path: './routes/getGitHubLogin.env', override: true });
 
 const app = require('./app');
 

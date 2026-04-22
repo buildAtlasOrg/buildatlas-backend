@@ -3,9 +3,6 @@ const passport = require('passport');
 const rateLimit = require('express-rate-limit');
 const githubController = require('../controllers/github.controller');
 const { ensureAuth } = require('../middleware/auth.middleware');
-const { recordAuthEvent } = require('../services/auth-events.service');
-const logger = require('../utils/logger');
-
 const router = express.Router();
 
 const apiLimiter = rateLimit({
@@ -46,15 +43,8 @@ router.post('/api/repos/:owner/:repo/actions/runs/:runId/cancel', ensureAuth, wo
 
 // OAuth
 router.get('/auth/github', githubController.initiateOAuth);
-router.get('/auth/github/callback', (req, res, next) => {
-  if (req.query.error) {
-    const reason = req.query.error_description || req.query.error;
-    logger.warn({ event: 'oauth_callback_error', error: req.query.error, ip: req.ip });
-    recordAuthEvent('login_fail', null, req.ip);
-    return res.redirect(`/login-failed?reason=${encodeURIComponent(reason)}`);
-  }
-  next();
-}, passport.authenticate('github', { failureRedirect: '/login-failed' }),
+router.get('/auth/github/callback',
+  passport.authenticate('github', { failureRedirect: '/login-failed' }),
   githubController.githubCallback
 );
 
